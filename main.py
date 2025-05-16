@@ -301,6 +301,10 @@ class Cropper(tk.Frame):
         # Load first image
         if self.image_files:
             self.load_current_image()
+        
+        # Bind keys
+        self.bind("<r>", lambda e: self.regenerate_crops())
+        self.bind("<R>", lambda e: self.regenerate_crops())
     
     def create_widgets(self):
         # Main container
@@ -361,6 +365,10 @@ class Cropper(tk.Frame):
         self.prev_button = tk.Button(button_container, text="Previous", command=self.prev_image,
                                   padx=20, pady=8, bg="#e0e0e0", font=('Arial', 10, 'bold'))
         self.prev_button.pack(side=tk.LEFT, padx=20, pady=10)
+        
+        self.refresh_button = tk.Button(button_container, text="Refresh Crops (R)", command=self.regenerate_crops,
+                                     padx=20, pady=8, bg="#2196F3", fg="white", font=('Arial', 10, 'bold'))
+        self.refresh_button.pack(side=tk.LEFT, padx=20, pady=10)
         
         self.next_button = tk.Button(button_container, text="Save & Next", command=self.save_and_next,
                                   padx=20, pady=8, bg="#4CAF50", fg="white", font=('Arial', 10, 'bold'))
@@ -533,6 +541,52 @@ class Cropper(tk.Frame):
             self.load_current_image()
         else:
             messagebox.showinfo("Complete", "All images have been processed!")
+    
+    def regenerate_crops(self):
+        """Regenerate crops for the current image"""
+        if not self.image_files or self.current_index >= len(self.image_files):
+            return
+            
+        # Reset selection
+        self.crop_selected = [False] * 9
+        
+        try:
+            # Get current image
+            image_path = self.image_files[self.current_index]
+            original = Image.open(image_path)
+            
+            # Calculate original dimensions for crop positions
+            width, height = original.size
+            
+            # Generate new crop positions
+            crop_positions = self._generate_crop_positions(width, height)
+            
+            # Clear existing crops
+            self.crops = []
+            
+            # Create new crops
+            for i, (x, y, w, h) in enumerate(crop_positions):
+                # Create crop
+                crop = original.crop((x, y, x + w, y + h))
+                self.crops.append(crop)
+                
+                # Create thumbnail for display
+                max_crop_size = (200, 200)
+                crop_display = crop.copy()
+                crop_display.thumbnail(max_crop_size, Image.Resampling.LANCZOS)
+                
+                # Convert to PhotoImage
+                photo = ImageTk.PhotoImage(crop_display)
+                
+                # Update label
+                self.crop_labels[i].configure(image=photo)
+                self.crop_labels[i].image = photo
+                
+                # Reset frame border
+                self.crop_frames[i].configure(background="lightgray")
+                
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to regenerate crops: {str(e)}")
 
 def main():
     app = ImageApp()

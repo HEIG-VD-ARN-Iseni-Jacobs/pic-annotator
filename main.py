@@ -9,6 +9,20 @@ from PIL import Image, ImageTk
 import os
 from pathlib import Path
 
+# Configuration - Easy to modify categories
+# Format: ("Display Name", "file_name_prefix")
+# Maximum 10 categories (0-9 keys)
+CATEGORIES = [
+    ("Sens interdit", "sens_interdit"),
+    ("Céder le passage", "ceder_le_passage"),
+    ("Stop", "stop"),
+    ("Giratoire", "giratoire")
+]
+
+# Validate categories
+if len(CATEGORIES) > 10:
+    raise ValueError("Maximum 10 categories allowed")
+
 class ImageViewer:
     def __init__(self, root, image_folder):
         self.root = root
@@ -21,12 +35,7 @@ class ImageViewer:
         self.current_index = 0
         
         # Category counters for file naming
-        self.category_counters = {
-            'sens_interdit': 0,
-            'ceder_le_passage': 0,
-            'stop': 0,
-            'giratoire': 0
-        }
+        self.category_counters = {cat[1]: 0 for cat in CATEGORIES}
         
         # Create main container
         self.container = tk.Frame(root)
@@ -60,24 +69,40 @@ class ImageViewer:
         
         # Radio buttons setup
         self.selected_category = tk.StringVar()
-        self.categories = [
-            ("Sens interdit", "sens_interdit"),
-            ("Céder le passage", "ceder_le_passage"),
-            ("Stop", "stop"),
-            ("Giratoire", "giratoire")
-        ]
         
-        for text, value in self.categories:
+        # Create radio buttons with number labels
+        for i, (text, value) in enumerate(CATEGORIES):
+            label_text = f"{i}: {text}"
             rb = tk.Radiobutton(
                 self.right_frame,
-                text=text,
+                text=label_text,
                 value=value,
                 variable=self.selected_category
             )
             rb.pack(anchor=tk.W, pady=2)
         
+        # Bind number keys to categories
+        self.setup_key_bindings()
+        
         # Load and display the first image
         self.load_current_image()
+    
+    def setup_key_bindings(self):
+        """Setup keyboard shortcuts for categories and actions"""
+        # Bind number keys to categories
+        for i in range(len(CATEGORIES)):
+            self.root.bind(str(i), self.create_key_handler(i))
+        
+        # Bind Enter to Keep and Delete to delete
+        self.root.bind('<Return>', lambda e: self.keep_image())
+        self.root.bind('<Delete>', lambda e: self.delete_image())
+    
+    def create_key_handler(self, index):
+        """Create a handler for number key press"""
+        def handler(event):
+            if index < len(CATEGORIES):
+                self.selected_category.set(CATEGORIES[index][1])
+        return handler
         
     def load_current_image(self):
         if not self.image_files:

@@ -4,10 +4,11 @@
 # Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
 
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import ttk, messagebox
 from PIL import Image, ImageTk
 import os
 from pathlib import Path
+import random
 
 # Configuration - Easy to modify categories
 # Format: ("Display Name", "file_name_prefix")
@@ -23,31 +24,52 @@ CATEGORIES = [
 if len(CATEGORIES) > 10:
     raise ValueError("Maximum 10 categories allowed")
 
-class ImageViewer:
-    def __init__(self, root, base_folder):
-        self.root = root
-        self.root.title("Image Viewer")
+class ImageApp(tk.Tk):
+    """Main application class with navigation"""
+    def __init__(self):
+        super().__init__()
+        self.title("Image Processing Tool")
+        self.geometry("1000x700")
         
         # Setup folder structure
-        self.base_folder = Path(base_folder)
+        self.base_folder = Path("images")
         self.to_process_folder = self.base_folder / "0_to_process"
         self.categorized_folder = self.base_folder / "1_categorized"
+        self.cropped_folder = self.base_folder / "2_cropped"
         
         # Create folders if they don't exist
         self.to_process_folder.mkdir(parents=True, exist_ok=True)
         self.categorized_folder.mkdir(parents=True, exist_ok=True)
+        self.cropped_folder.mkdir(parents=True, exist_ok=True)
         
-        # Store the image folder path and get all image files
-        self.image_files = [f for f in self.to_process_folder.glob("*") 
-                          if f.suffix.lower() in ('.png', '.jpg', '.jpeg', '.gif', '.bmp')]
-        self.current_index = 0
+        # Create notebook for tab navigation
+        self.notebook = ttk.Notebook(self)
+        self.notebook.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        
+        # Create tabs
+        self.categorizer_frame = ttk.Frame(self.notebook)
+        self.cropper_frame = ttk.Frame(self.notebook)
+        
+        self.notebook.add(self.categorizer_frame, text="Categorize Images")
+        self.notebook.add(self.cropper_frame, text="Crop Images")
+        
+        # Initialize widgets
+        self.categorizer = Categorizer(self.categorizer_frame, self)
+        self.cropper = Cropper(self.cropper_frame, self)
+
+class Categorizer(tk.Frame):
+    """Widget for categorizing images"""
+    def __init__(self, parent, app):
+        super().__init__(parent)
+        self.app = app
+        self.pack(fill=tk.BOTH, expand=True)
         
         # Initialize category counters
         self.category_counters = {}
         self._initialize_category_counters()
         
         # Create main container
-        self.container = tk.Frame(root)
+        self.container = tk.Frame(self)
         self.container.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         
         # Create left frame for image
@@ -90,6 +112,11 @@ class ImageViewer:
             )
             rb.pack(anchor=tk.W, pady=2)
         
+        # Store the image folder path and get all image files
+        self.image_files = [f for f in self.app.to_process_folder.glob("*") 
+                          if f.suffix.lower() in ('.png', '.jpg', '.jpeg', '.gif', '.bmp')]
+        self.current_index = 0
+        
         # Bind number keys to categories
         self.setup_key_bindings()
         
@@ -103,7 +130,7 @@ class ImageViewer:
     
     def _get_category_count(self, category):
         """Get the next available number for a category based on existing files"""
-        existing_files = list(self.categorized_folder.glob(f"{category}_*.*"))
+        existing_files = list(self.app.categorized_folder.glob(f"{category}_*.*"))
         if not existing_files:
             return 0
         
@@ -130,35 +157,34 @@ class ImageViewer:
         while True:
             self.category_counters[category] += 1
             new_filename = f"{category}_{self.category_counters[category]}{suffix}"
-            if not (self.categorized_folder / new_filename).exists():
+            if not (self.app.categorized_folder / new_filename).exists():
                 return new_filename
     
     def setup_key_bindings(self):
         """Setup keyboard shortcuts for categories and actions"""
         # Bind number keys to categories
         for i in range(len(CATEGORIES)):
-            self.root.bind(str(i), self.create_key_handler(i))
+            self.app.bind(str(i), self.create_key_handler(i))
         
         # Bind Enter to Keep and Delete to delete
-        self.root.bind('<Return>', lambda e: self.keep_image())
-        self.root.bind('<Delete>', lambda e: self.delete_image())
+        self.app.bind('<Return>', lambda e: self.keep_image())
+        self.app.bind('<Delete>', lambda e: self.delete_image())
     
     def create_key_handler(self, index):
         """Create a handler for number key press"""
         def handler(event):
-            if index < len(CATEGORIES):
-                self.selected_category.set(CATEGORIES[index][1])
+            if self.app.notebook.select() == str(self.app.categorizer_frame):
+                if index < len(CATEGORIES):
+                    self.selected_category.set(CATEGORIES[index][1])
         return handler
         
     def load_current_image(self):
         if not self.image_files:
             messagebox.showinfo("Complete", "No more images to process!")
-            self.root.quit()
             return
             
         if self.current_index >= len(self.image_files):
             messagebox.showinfo("Complete", "All images have been processed!")
-            self.root.quit()
             return
             
         # Get current image path
@@ -179,7 +205,7 @@ class ImageViewer:
         self.image_label.image = photo  # Keep a reference!
         
         # Update window title with current image name
-        self.root.title(f"Image Viewer - {image_path.name}")
+        self.app.title(f"Image Processing Tool - {image_path.name}")
         
         # Clear radio button selection
         self.selected_category.set("")
@@ -194,7 +220,7 @@ class ImageViewer:
         
         # Get a unique filename for the category
         new_filename = self._get_unique_filename(category, current_image.suffix)
-        new_path = self.categorized_folder / new_filename
+        new_path = self.app.categorized_folder / new_filename
         
         try:
             # Move the file to the categorized folder
@@ -218,18 +244,254 @@ class ImageViewer:
         except Exception as e:
             messagebox.showerror("Error", f"Failed to delete image: {str(e)}")
 
+class Cropper(tk.Frame):
+    """Widget for cropping images"""
+    def __init__(self, parent, app):
+        super().__init__(parent)
+        self.app = app
+        self.pack(fill=tk.BOTH, expand=True)
+        
+        # Crop counter for naming
+        self.crop_counter = self._get_crop_count()
+        
+        # Get all images in categorized folder
+        self.image_files = [f for f in self.app.categorized_folder.glob("*") 
+                           if f.suffix.lower() in ('.png', '.jpg', '.jpeg', '.gif', '.bmp')]
+        self.current_index = 0
+        
+        # Create UI
+        self.create_widgets()
+        
+        # Load first image
+        if self.image_files:
+            self.load_current_image()
+    
+    def create_widgets(self):
+        # Main container
+        self.container = tk.Frame(self)
+        self.container.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        
+        # Top section - Original image and info
+        self.top_frame = tk.Frame(self.container)
+        self.top_frame.pack(fill=tk.X, padx=5, pady=5)
+        
+        self.original_label = tk.Label(self.top_frame)
+        self.original_label.pack(side=tk.LEFT, padx=5)
+        
+        self.info_frame = tk.Frame(self.top_frame)
+        self.info_frame.pack(side=tk.LEFT, padx=20, fill=tk.Y)
+        
+        self.file_label = tk.Label(self.info_frame, text="", font=('Arial', 10))
+        self.file_label.pack(anchor=tk.W, pady=2)
+        
+        self.progress_label = tk.Label(self.info_frame, text="", font=('Arial', 10))
+        self.progress_label.pack(anchor=tk.W, pady=2)
+        
+        # Middle section - Crops grid
+        self.crops_frame = tk.Frame(self.container)
+        self.crops_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=10)
+        
+        # 2x2 grid for crops
+        self.crop_frames = []
+        self.crop_labels = []
+        self.crop_selected = [False, False, False, False]
+        
+        # Create 2x2 grid
+        for row in range(2):
+            for col in range(2):
+                index = row * 2 + col
+                frame = tk.Frame(self.crops_frame, borderwidth=2, relief="groove")
+                frame.grid(row=row, column=col, padx=5, pady=5, sticky="nsew")
+                
+                # Configure grid to make cells equal size
+                self.crops_frame.grid_columnconfigure(col, weight=1)
+                self.crops_frame.grid_rowconfigure(row, weight=1)
+                
+                # Create label for crop
+                label = tk.Label(frame)
+                label.pack(fill=tk.BOTH, expand=True)
+                
+                # Bind click event
+                label.bind("<Button-1>", lambda e, idx=index: self.toggle_selection(idx))
+                
+                self.crop_frames.append(frame)
+                self.crop_labels.append(label)
+        
+        # Bottom section - Controls
+        self.controls_frame = tk.Frame(self.container)
+        self.controls_frame.pack(fill=tk.X, padx=5, pady=5)
+        
+        self.prev_button = tk.Button(self.controls_frame, text="Previous", command=self.prev_image)
+        self.prev_button.pack(side=tk.LEFT, padx=5)
+        
+        self.next_button = tk.Button(self.controls_frame, text="Save & Next", command=self.save_and_next)
+        self.next_button.pack(side=tk.LEFT, padx=5)
+        
+        # Bind enter key for Save & Next
+        self.app.bind('<Return>', lambda e: self.handle_return_key(e))
+    
+    def handle_return_key(self, event):
+        """Handle Return key press based on active tab"""
+        if self.app.notebook.select() == str(self.app.cropper_frame):
+            self.save_and_next()
+    
+    def _get_crop_count(self):
+        """Get the next available number for crops"""
+        existing_files = list(self.app.cropped_folder.glob("crop_*.*"))
+        if not existing_files:
+            return 0
+        
+        # Extract numbers from existing files
+        numbers = []
+        for file in existing_files:
+            try:
+                number_part = file.stem.split('_')[1]
+                if number_part.isdigit():
+                    numbers.append(int(number_part))
+            except (IndexError, ValueError):
+                continue
+        
+        # If no valid numbers found, start from 0
+        if not numbers:
+            return 0
+            
+        # Return the highest number found
+        return max(numbers)
+    
+    def load_current_image(self):
+        """Load the current image and generate crops"""
+        if not self.image_files or self.current_index >= len(self.image_files):
+            messagebox.showinfo("Complete", "No more images to crop!")
+            return
+        
+        # Get current image path
+        self.current_image_path = self.image_files[self.current_index]
+        
+        # Reset selection
+        self.crop_selected = [False, False, False, False]
+        
+        # Open image
+        try:
+            original = Image.open(self.current_image_path)
+            
+            # Display original image (resized)
+            max_size = (300, 300)
+            display_img = original.copy()
+            display_img.thumbnail(max_size, Image.Resampling.LANCZOS)
+            photo = ImageTk.PhotoImage(display_img)
+            self.original_label.configure(image=photo)
+            self.original_label.image = photo
+            
+            # Update information
+            self.file_label.configure(text=f"File: {self.current_image_path.name}")
+            self.progress_label.configure(text=f"Image {self.current_index + 1} of {len(self.image_files)}")
+            
+            # Calculate original dimensions for crop positions
+            width, height = original.size
+            
+            # Generate four crops
+            self.crops = []
+            crop_positions = self._generate_crop_positions(width, height)
+            
+            for i, (x, y, w, h) in enumerate(crop_positions):
+                # Create crop
+                crop = original.crop((x, y, x + w, y + h))
+                self.crops.append(crop)
+                
+                # Create thumbnail for display
+                max_crop_size = (300, 300)
+                crop_display = crop.copy()
+                crop_display.thumbnail(max_crop_size, Image.Resampling.LANCZOS)
+                
+                # Convert to PhotoImage
+                photo = ImageTk.PhotoImage(crop_display)
+                
+                # Update label
+                self.crop_labels[i].configure(image=photo)
+                self.crop_labels[i].image = photo
+                
+                # Reset frame border
+                self.crop_frames[i].configure(background="lightgray")
+            
+            # Update application title
+            self.app.title(f"Image Processing Tool - Cropping: {self.current_image_path.name}")
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to process image: {str(e)}")
+            self.current_index += 1
+            self.load_current_image()
+    
+    def _generate_crop_positions(self, width, height):
+        """Generate 4 random crop positions within the image"""
+        # Minimum crop size (20-40% of original dimensions)
+        min_crop_size = (int(width * 0.2), int(height * 0.2))
+        max_crop_size = (int(width * 0.4), int(height * 0.4))
+        
+        crop_positions = []
+        
+        for _ in range(4):
+            # Random crop width and height
+            crop_width = random.randint(min_crop_size[0], max_crop_size[0])
+            crop_height = random.randint(min_crop_size[1], max_crop_size[1])
+            
+            # Random position (ensure crop is within image bounds)
+            x = random.randint(0, width - crop_width)
+            y = random.randint(0, height - crop_height)
+            
+            crop_positions.append((x, y, crop_width, crop_height))
+        
+        return crop_positions
+    
+    def toggle_selection(self, index):
+        """Toggle selection of a crop"""
+        if 0 <= index < 4:
+            self.crop_selected[index] = not self.crop_selected[index]
+            # Update visual indication
+            color = "green" if self.crop_selected[index] else "lightgray"
+            self.crop_frames[index].configure(background=color)
+    
+    def prev_image(self):
+        """Go to previous image"""
+        if self.current_index > 0:
+            self.current_index -= 1
+            self.load_current_image()
+    
+    def save_and_next(self):
+        """Save selected crops and advance to next image"""
+        if not self.image_files or self.current_index >= len(self.image_files):
+            return
+        
+        # Save selected crops
+        for i, selected in enumerate(self.crop_selected):
+            if selected and i < len(self.crops):
+                try:
+                    # Increment crop counter
+                    self.crop_counter += 1
+                    
+                    # Get file extension from original
+                    extension = self.current_image_path.suffix
+                    
+                    # Create filename
+                    crop_filename = f"crop_{self.crop_counter}{extension}"
+                    crop_path = self.app.cropped_folder / crop_filename
+                    
+                    # Save crop
+                    self.crops[i].save(crop_path)
+                    
+                except Exception as e:
+                    messagebox.showerror("Error", f"Failed to save crop: {str(e)}")
+        
+        # Move to next image
+        self.current_index += 1
+        
+        if self.current_index < len(self.image_files):
+            self.load_current_image()
+        else:
+            messagebox.showinfo("Complete", "All images have been processed!")
+
 def main():
-    # Create the root window
-    root = tk.Tk()
-    
-    # Get the base folder path
-    base_folder = "images"  # Default folder name
-    
-    # Create the image viewer
-    app = ImageViewer(root, base_folder)
-    
-    # Start the application
-    root.mainloop()
+    app = ImageApp()
+    app.mainloop()
 
 if __name__ == '__main__':
     main()

@@ -20,16 +20,28 @@ class ImageViewer:
                           if f.suffix.lower() in ('.png', '.jpg', '.jpeg', '.gif', '.bmp')]
         self.current_index = 0
         
-        # Create main frame
-        self.main_frame = tk.Frame(root)
-        self.main_frame.pack(padx=10, pady=10)
+        # Category counters for file naming
+        self.category_counters = {
+            'sens_interdit': 0,
+            'ceder_le_passage': 0,
+            'stop': 0,
+            'giratoire': 0
+        }
+        
+        # Create main container
+        self.container = tk.Frame(root)
+        self.container.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        
+        # Create left frame for image
+        self.left_frame = tk.Frame(self.container)
+        self.left_frame.pack(side=tk.LEFT, padx=(0, 10))
         
         # Create image label
-        self.image_label = tk.Label(self.main_frame)
+        self.image_label = tk.Label(self.left_frame)
         self.image_label.pack(pady=10)
         
         # Create button frame
-        self.button_frame = tk.Frame(self.main_frame)
+        self.button_frame = tk.Frame(self.left_frame)
         self.button_frame.pack(pady=10)
         
         # Create buttons
@@ -38,6 +50,31 @@ class ImageViewer:
         
         self.delete_button = tk.Button(self.button_frame, text="Delete", command=self.delete_image)
         self.delete_button.pack(side=tk.LEFT, padx=5)
+        
+        # Create right frame for radio buttons
+        self.right_frame = tk.Frame(self.container)
+        self.right_frame.pack(side=tk.LEFT, fill=tk.Y, padx=(10, 0))
+        
+        # Create label for categories
+        tk.Label(self.right_frame, text="Catégories:", font=('Arial', 10, 'bold')).pack(anchor=tk.W, pady=(0, 10))
+        
+        # Radio buttons setup
+        self.selected_category = tk.StringVar()
+        self.categories = [
+            ("Sens interdit", "sens_interdit"),
+            ("Céder le passage", "ceder_le_passage"),
+            ("Stop", "stop"),
+            ("Giratoire", "giratoire")
+        ]
+        
+        for text, value in self.categories:
+            rb = tk.Radiobutton(
+                self.right_frame,
+                text=text,
+                value=value,
+                variable=self.selected_category
+            )
+            rb.pack(anchor=tk.W, pady=2)
         
         # Load and display the first image
         self.load_current_image()
@@ -73,9 +110,34 @@ class ImageViewer:
         # Update window title with current image name
         self.root.title(f"Image Viewer - {image_path.name}")
         
+        # Clear radio button selection
+        self.selected_category.set("")
+        
     def keep_image(self):
-        self.current_index += 1
-        self.load_current_image()
+        if not self.selected_category.get():
+            messagebox.showwarning("Warning", "Veuillez sélectionner une catégorie avant de continuer.")
+            return
+            
+        current_image = self.image_files[self.current_index]
+        category = self.selected_category.get()
+        
+        # Increment counter for the selected category
+        self.category_counters[category] += 1
+        
+        # Create new filename with category and index
+        new_filename = f"{category}_{self.category_counters[category]}{current_image.suffix}"
+        new_path = current_image.parent / new_filename
+        
+        try:
+            # Rename the file
+            current_image.rename(new_path)
+            # Update the list with the new path
+            self.image_files[self.current_index] = new_path
+            # Move to next image
+            self.current_index += 1
+            self.load_current_image()
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to rename image: {str(e)}")
         
     def delete_image(self):
         if not self.image_files:

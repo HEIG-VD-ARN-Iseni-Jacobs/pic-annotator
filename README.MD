@@ -18,10 +18,19 @@ There are some other parts coming soon with various tools : another dataset augm
 Add the pictures you want to categorize in the `./images/0_to_process` folder.
 Run the script, use the GUI or your keybord to navigate and categorize the pictures. You can stop at any moment and resume later, the increments won't broke (hopefully). The categorized images will be moved to the `./images/1_categorized` folder and renamed to `<category>_<index>.jpg`
 
+Keybindings :
+- `ENTER` : keep the picture (must have been categorized before)
+- `DELETE` : delete the picture
+- `0`-`9` : select the category
+
 ### 2. Picture cropper
 
 When you're finished with the categorizer, you can run the picture cropper. You may have to restart the app for you to see pictures in the widget. Don't start this before you're finished with the categorizer : the cropper doesn't rember wich pictures it has already cropped or not. 
 Cropped images will be saved in the `./images/2_cropped` folder and renamed to `<categorized_picture_name>_crop_<crop_index>.jpg`
+
+Keybindings :
+- `ENTER` : Validate crop selection and go to next picture
+- `R` : reinitialize the crop selection
 
 ### How to run the app
 

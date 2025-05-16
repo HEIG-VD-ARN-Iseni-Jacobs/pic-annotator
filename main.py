@@ -29,7 +29,11 @@ class ImageApp(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("Image Processing Tool")
-        self.geometry("1000x700")
+        
+        # Make application full screen
+        screen_width = self.winfo_screenwidth()
+        screen_height = self.winfo_screenheight()
+        self.geometry(f"{screen_width}x{screen_height}+0+0")
         
         # Setup folder structure
         self.base_folder = Path("images")
@@ -349,18 +353,18 @@ class Cropper(tk.Frame):
                 self.crop_frames.append(frame)
                 self.crop_labels.append(label)
         
-        # Bottom section - Controls
-        self.controls_frame = tk.Frame(self.container, height=50)
-        self.controls_frame.pack(fill=tk.X, padx=5, pady=10)
-        self.controls_frame.pack_propagate(False)  # Prevent shrinking
+        # Create a separate frame at the bottom of the main container for buttons
+        button_container = tk.Frame(self.container, height=60, bg="lightgray")
+        button_container.pack(side=tk.BOTTOM, fill=tk.X, pady=10)
         
-        self.prev_button = tk.Button(self.controls_frame, text="Previous", command=self.prev_image,
-                                     padx=20, pady=5)
-        self.prev_button.pack(side=tk.LEFT, padx=5)
+        # Add buttons with larger size and clear colors
+        self.prev_button = tk.Button(button_container, text="Previous", command=self.prev_image,
+                                  padx=20, pady=8, bg="#e0e0e0", font=('Arial', 10, 'bold'))
+        self.prev_button.pack(side=tk.LEFT, padx=20, pady=10)
         
-        self.next_button = tk.Button(self.controls_frame, text="Save & Next", command=self.save_and_next,
-                                    padx=20, pady=5)
-        self.next_button.pack(side=tk.LEFT, padx=5)
+        self.next_button = tk.Button(button_container, text="Save & Next", command=self.save_and_next,
+                                  padx=20, pady=8, bg="#4CAF50", fg="white", font=('Arial', 10, 'bold'))
+        self.next_button.pack(side=tk.LEFT, padx=20, pady=10)
         
         # Custom binding for this widget
         self.bind("<Return>", lambda e: self.save_and_next())

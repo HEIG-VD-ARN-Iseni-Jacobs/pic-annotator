@@ -42,8 +42,9 @@ class ImageViewer:
                           if f.suffix.lower() in ('.png', '.jpg', '.jpeg', '.gif', '.bmp')]
         self.current_index = 0
         
-        # Category counters for file naming
-        self.category_counters = {cat[1]: 0 for cat in CATEGORIES}
+        # Initialize category counters
+        self.category_counters = {}
+        self._initialize_category_counters()
         
         # Create main container
         self.container = tk.Frame(root)
@@ -94,6 +95,43 @@ class ImageViewer:
         
         # Load and display the first image
         self.load_current_image()
+    
+    def _initialize_category_counters(self):
+        """Initialize counters for all categories based on existing files"""
+        for _, category_prefix in CATEGORIES:
+            self.category_counters[category_prefix] = self._get_category_count(category_prefix)
+    
+    def _get_category_count(self, category):
+        """Get the next available number for a category based on existing files"""
+        existing_files = list(self.categorized_folder.glob(f"{category}_*.*"))
+        if not existing_files:
+            return 0
+        
+        # Extract numbers from existing files
+        numbers = []
+        for file in existing_files:
+            try:
+                # Split the filename and get the number part
+                number_part = file.stem.split('_')[1]
+                if number_part.isdigit():
+                    numbers.append(int(number_part))
+            except (IndexError, ValueError):
+                continue
+        
+        # If no valid numbers found, start from 0
+        if not numbers:
+            return 0
+            
+        # Return the highest number found
+        return max(numbers)
+    
+    def _get_unique_filename(self, category, suffix):
+        """Generate a unique filename for the category"""
+        while True:
+            self.category_counters[category] += 1
+            new_filename = f"{category}_{self.category_counters[category]}{suffix}"
+            if not (self.categorized_folder / new_filename).exists():
+                return new_filename
     
     def setup_key_bindings(self):
         """Setup keyboard shortcuts for categories and actions"""
@@ -154,20 +192,16 @@ class ImageViewer:
         current_image = self.image_files[self.current_index]
         category = self.selected_category.get()
         
-        # Increment counter for the selected category
-        self.category_counters[category] += 1
-        
-        # Create new filename with category and index
-        new_filename = f"{category}_{self.category_counters[category]}{current_image.suffix}"
+        # Get a unique filename for the category
+        new_filename = self._get_unique_filename(category, current_image.suffix)
         new_path = self.categorized_folder / new_filename
         
         try:
             # Move the file to the categorized folder
             current_image.rename(new_path)
-            # Update the list with the new path
-            self.image_files[self.current_index] = new_path
+            # Remove the processed file from the list
+            self.image_files.pop(self.current_index)
             # Move to next image
-            self.current_index += 1
             self.load_current_image()
         except Exception as e:
             messagebox.showerror("Error", f"Failed to move image: {str(e)}")

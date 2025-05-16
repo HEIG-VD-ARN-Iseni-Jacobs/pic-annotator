@@ -30,8 +30,8 @@ class ImageViewer:
         
         # Setup folder structure
         self.base_folder = Path(base_folder)
-        self.to_process_folder = self.base_folder / "to_process"
-        self.categorized_folder = self.base_folder / "categorized"
+        self.to_process_folder = self.base_folder / "0_to_process"
+        self.categorized_folder = self.base_folder / "1_categorized"
         
         # Create folders if they don't exist
         self.to_process_folder.mkdir(parents=True, exist_ok=True)

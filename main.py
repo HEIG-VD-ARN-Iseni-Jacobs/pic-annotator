@@ -56,6 +56,35 @@ class ImageApp(tk.Tk):
         # Initialize widgets
         self.categorizer = Categorizer(self.categorizer_frame, self)
         self.cropper = Cropper(self.cropper_frame, self)
+        
+        # Set up global key bindings for each tab
+        self.bind('<Return>', self.handle_return_key)
+        self.bind('<Delete>', self.handle_delete_key)
+        
+        # Bind tab change event to update focus
+        self.notebook.bind('<<NotebookTabChanged>>', self.tab_changed)
+    
+    def tab_changed(self, event):
+        """Handle tab change event to update focus"""
+        current_tab = self.notebook.select()
+        if current_tab == str(self.categorizer_frame):
+            self.categorizer.focus_set()
+        elif current_tab == str(self.cropper_frame):
+            self.cropper.focus_set()
+    
+    def handle_return_key(self, event):
+        """Handle Return key press based on active tab"""
+        current_tab = self.notebook.select()
+        if current_tab == str(self.categorizer_frame):
+            self.categorizer.keep_image()
+        elif current_tab == str(self.cropper_frame):
+            self.cropper.save_and_next()
+    
+    def handle_delete_key(self, event):
+        """Handle Delete key press based on active tab"""
+        current_tab = self.notebook.select()
+        if current_tab == str(self.categorizer_frame):
+            self.categorizer.delete_image()
 
 class Categorizer(tk.Frame):
     """Widget for categorizing images"""
@@ -74,21 +103,24 @@ class Categorizer(tk.Frame):
         
         # Create left frame for image
         self.left_frame = tk.Frame(self.container)
-        self.left_frame.pack(side=tk.LEFT, padx=(0, 10))
+        self.left_frame.pack(side=tk.LEFT, padx=(0, 10), fill=tk.BOTH, expand=True)
         
         # Create image label
         self.image_label = tk.Label(self.left_frame)
         self.image_label.pack(pady=10)
         
-        # Create button frame
-        self.button_frame = tk.Frame(self.left_frame)
-        self.button_frame.pack(pady=10)
+        # Create button frame with fixed height
+        self.button_frame = tk.Frame(self.left_frame, height=50)
+        self.button_frame.pack(pady=10, fill=tk.X)
+        self.button_frame.pack_propagate(False)  # Prevent shrinking
         
         # Create buttons
-        self.keep_button = tk.Button(self.button_frame, text="Keep", command=self.keep_image)
+        self.keep_button = tk.Button(self.button_frame, text="Keep", command=self.keep_image, 
+                                     padx=20, pady=5)
         self.keep_button.pack(side=tk.LEFT, padx=5)
         
-        self.delete_button = tk.Button(self.button_frame, text="Delete", command=self.delete_image)
+        self.delete_button = tk.Button(self.button_frame, text="Delete", command=self.delete_image,
+                                      padx=20, pady=5)
         self.delete_button.pack(side=tk.LEFT, padx=5)
         
         # Create right frame for radio buttons
@@ -252,7 +284,7 @@ class Cropper(tk.Frame):
         self.pack(fill=tk.BOTH, expand=True)
         
         # Crop counter for naming
-        self.crop_counter = self._get_crop_count()
+        self.crop_counter = {}
         
         # Get all images in categorized folder
         self.image_files = [f for f in self.app.categorized_folder.glob("*") 
@@ -291,15 +323,15 @@ class Cropper(tk.Frame):
         self.crops_frame = tk.Frame(self.container)
         self.crops_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=10)
         
-        # 2x2 grid for crops
+        # 3x3 grid for crops
         self.crop_frames = []
         self.crop_labels = []
-        self.crop_selected = [False, False, False, False]
+        self.crop_selected = [False] * 9
         
-        # Create 2x2 grid
-        for row in range(2):
-            for col in range(2):
-                index = row * 2 + col
+        # Create 3x3 grid
+        for row in range(3):
+            for col in range(3):
+                index = row * 3 + col
                 frame = tk.Frame(self.crops_frame, borderwidth=2, relief="groove")
                 frame.grid(row=row, column=col, padx=5, pady=5, sticky="nsew")
                 
@@ -318,45 +350,47 @@ class Cropper(tk.Frame):
                 self.crop_labels.append(label)
         
         # Bottom section - Controls
-        self.controls_frame = tk.Frame(self.container)
-        self.controls_frame.pack(fill=tk.X, padx=5, pady=5)
+        self.controls_frame = tk.Frame(self.container, height=50)
+        self.controls_frame.pack(fill=tk.X, padx=5, pady=10)
+        self.controls_frame.pack_propagate(False)  # Prevent shrinking
         
-        self.prev_button = tk.Button(self.controls_frame, text="Previous", command=self.prev_image)
+        self.prev_button = tk.Button(self.controls_frame, text="Previous", command=self.prev_image,
+                                     padx=20, pady=5)
         self.prev_button.pack(side=tk.LEFT, padx=5)
         
-        self.next_button = tk.Button(self.controls_frame, text="Save & Next", command=self.save_and_next)
+        self.next_button = tk.Button(self.controls_frame, text="Save & Next", command=self.save_and_next,
+                                    padx=20, pady=5)
         self.next_button.pack(side=tk.LEFT, padx=5)
         
-        # Bind enter key for Save & Next
-        self.app.bind('<Return>', lambda e: self.handle_return_key(e))
+        # Custom binding for this widget
+        self.bind("<Return>", lambda e: self.save_and_next())
     
-    def handle_return_key(self, event):
-        """Handle Return key press based on active tab"""
-        if self.app.notebook.select() == str(self.app.cropper_frame):
-            self.save_and_next()
-    
-    def _get_crop_count(self):
-        """Get the next available number for crops"""
-        existing_files = list(self.app.cropped_folder.glob("crop_*.*"))
+    def _get_crop_count(self, base_name):
+        """Get the next available number for a specific base name"""
+        if base_name in self.crop_counter:
+            return self.crop_counter[base_name]
+        
+        # Check existing files with this base name
+        existing_files = list(self.app.cropped_folder.glob(f"{base_name}_crop_*.*"))
         if not existing_files:
-            return 0
+            return 1
         
         # Extract numbers from existing files
         numbers = []
         for file in existing_files:
             try:
-                number_part = file.stem.split('_')[1]
+                number_part = file.stem.split('_crop_')[1]
                 if number_part.isdigit():
                     numbers.append(int(number_part))
             except (IndexError, ValueError):
                 continue
         
-        # If no valid numbers found, start from 0
+        # If no valid numbers found, start from 1
         if not numbers:
-            return 0
+            return 1
             
-        # Return the highest number found
-        return max(numbers)
+        # Return the highest number found + 1
+        return max(numbers) + 1
     
     def load_current_image(self):
         """Load the current image and generate crops"""
@@ -367,8 +401,15 @@ class Cropper(tk.Frame):
         # Get current image path
         self.current_image_path = self.image_files[self.current_index]
         
+        # Get base filename (without extension) for naming crops
+        self.current_base_name = self.current_image_path.stem
+        
+        # Initialize or get crop counter for this base name
+        if self.current_base_name not in self.crop_counter:
+            self.crop_counter[self.current_base_name] = self._get_crop_count(self.current_base_name)
+        
         # Reset selection
-        self.crop_selected = [False, False, False, False]
+        self.crop_selected = [False] * 9
         
         # Open image
         try:
@@ -389,7 +430,7 @@ class Cropper(tk.Frame):
             # Calculate original dimensions for crop positions
             width, height = original.size
             
-            # Generate four crops
+            # Generate nine crops
             self.crops = []
             crop_positions = self._generate_crop_positions(width, height)
             
@@ -399,7 +440,7 @@ class Cropper(tk.Frame):
                 self.crops.append(crop)
                 
                 # Create thumbnail for display
-                max_crop_size = (300, 300)
+                max_crop_size = (200, 200)
                 crop_display = crop.copy()
                 crop_display.thumbnail(max_crop_size, Image.Resampling.LANCZOS)
                 
@@ -422,14 +463,14 @@ class Cropper(tk.Frame):
             self.load_current_image()
     
     def _generate_crop_positions(self, width, height):
-        """Generate 4 random crop positions within the image"""
-        # Minimum crop size (20-40% of original dimensions)
-        min_crop_size = (int(width * 0.2), int(height * 0.2))
-        max_crop_size = (int(width * 0.4), int(height * 0.4))
+        """Generate 9 random crop positions within the image"""
+        # Less aggressive crop size (40-60% of original dimensions)
+        min_crop_size = (int(width * 0.4), int(height * 0.4))
+        max_crop_size = (int(width * 0.6), int(height * 0.6))
         
         crop_positions = []
         
-        for _ in range(4):
+        for _ in range(9):
             # Random crop width and height
             crop_width = random.randint(min_crop_size[0], max_crop_size[0])
             crop_height = random.randint(min_crop_size[1], max_crop_size[1])
@@ -444,7 +485,7 @@ class Cropper(tk.Frame):
     
     def toggle_selection(self, index):
         """Toggle selection of a crop"""
-        if 0 <= index < 4:
+        if 0 <= index < 9:
             self.crop_selected[index] = not self.crop_selected[index]
             # Update visual indication
             color = "green" if self.crop_selected[index] else "lightgray"
@@ -465,18 +506,18 @@ class Cropper(tk.Frame):
         for i, selected in enumerate(self.crop_selected):
             if selected and i < len(self.crops):
                 try:
-                    # Increment crop counter
-                    self.crop_counter += 1
-                    
                     # Get file extension from original
                     extension = self.current_image_path.suffix
                     
-                    # Create filename
-                    crop_filename = f"crop_{self.crop_counter}{extension}"
+                    # Create filename with original name and crop index
+                    crop_filename = f"{self.current_base_name}_crop_{self.crop_counter[self.current_base_name]}{extension}"
                     crop_path = self.app.cropped_folder / crop_filename
                     
                     # Save crop
                     self.crops[i].save(crop_path)
+                    
+                    # Increment counter for next crop
+                    self.crop_counter[self.current_base_name] += 1
                     
                 except Exception as e:
                     messagebox.showerror("Error", f"Failed to save crop: {str(e)}")

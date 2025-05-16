@@ -24,13 +24,21 @@ if len(CATEGORIES) > 10:
     raise ValueError("Maximum 10 categories allowed")
 
 class ImageViewer:
-    def __init__(self, root, image_folder):
+    def __init__(self, root, base_folder):
         self.root = root
         self.root.title("Image Viewer")
         
+        # Setup folder structure
+        self.base_folder = Path(base_folder)
+        self.to_process_folder = self.base_folder / "to_process"
+        self.categorized_folder = self.base_folder / "categorized"
+        
+        # Create folders if they don't exist
+        self.to_process_folder.mkdir(parents=True, exist_ok=True)
+        self.categorized_folder.mkdir(parents=True, exist_ok=True)
+        
         # Store the image folder path and get all image files
-        self.image_folder = Path(image_folder)
-        self.image_files = [f for f in self.image_folder.glob("*") 
+        self.image_files = [f for f in self.to_process_folder.glob("*") 
                           if f.suffix.lower() in ('.png', '.jpg', '.jpeg', '.gif', '.bmp')]
         self.current_index = 0
         
@@ -151,10 +159,10 @@ class ImageViewer:
         
         # Create new filename with category and index
         new_filename = f"{category}_{self.category_counters[category]}{current_image.suffix}"
-        new_path = current_image.parent / new_filename
+        new_path = self.categorized_folder / new_filename
         
         try:
-            # Rename the file
+            # Move the file to the categorized folder
             current_image.rename(new_path)
             # Update the list with the new path
             self.image_files[self.current_index] = new_path
@@ -162,7 +170,7 @@ class ImageViewer:
             self.current_index += 1
             self.load_current_image()
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to rename image: {str(e)}")
+            messagebox.showerror("Error", f"Failed to move image: {str(e)}")
         
     def delete_image(self):
         if not self.image_files:
@@ -180,11 +188,11 @@ def main():
     # Create the root window
     root = tk.Tk()
     
-    # Get the image folder path (you can modify this to your desired folder)
-    image_folder = "images"  # Default folder name
+    # Get the base folder path
+    base_folder = "images"  # Default folder name
     
     # Create the image viewer
-    app = ImageViewer(root, image_folder)
+    app = ImageViewer(root, base_folder)
     
     # Start the application
     root.mainloop()

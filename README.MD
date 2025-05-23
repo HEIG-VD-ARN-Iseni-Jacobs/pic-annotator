@@ -4,7 +4,7 @@ This tool was built to manually but quickly generate a dataset of images for tra
 
 It is composed of four main parts :
 - The first part is a simple image categorizer, that allows you to quickly categorize images based on a list of categories (the categories are defined in the code).
-- The second part is a picture cropper to make sure the object of interest takes enough space in the picture. TODO, not implemented yet.
+- The second part is a picture cropper to make sure the object of interest takes enough space in the picture. Just draw a square and click on save.
 - The third part is a multi-picture cropper for data augmentation. It takes the cropped images and crops them into multiple randomly-positioned and randomly-sized images. The user can then click on the pictures to select them or not. This allows for a quick and easy data augmentation.
 - The fourth part is a picture rotator for data augmentation. It takes the multi-cropped images and rotates them into multiple versions. For now, it creates black borders, but we plan on zooming in on the picture to prevent this.
 
@@ -27,11 +27,13 @@ Keybindings :
 
 ### 2. Picture cropper
 
-TODO, not implemented yet.
+Once the categorizer is finished, you can run the picture cropper. It will take the categorized images and allow you to draw a square around the object of interest. The cropped images will be saved in the `./images/2_cropped` folder and renamed to `<categorized_picture_name>_crop_<crop_index>.jpg`.
+Don't start this before you're finished with the categorizer : the cropper doesn't rember wich pictures it has already cropped or not. 
+I'm not totally sure this paragraph is correct, because Copilot wrote it and I was too unbothered to read it. But I think it is.
 
 ### 3. Multi-picture cropper
 
-When you're finished with the categorizer, you can run the picture cropper. You may have to restart the app for you to see pictures in the widget. Don't start this before you're finished with the categorizer : the cropper doesn't rember wich pictures it has already cropped or not. 
+When you're finished with the single-cropper, you can run the picture multi-cropper. You may have to restart the app for you to see pictures in the widget. Don't start this before you're finished with the single cropper : the cropper doesn't rember wich pictures it has already cropped or not. 
 Cropped images will be saved in the `./images/2_cropped` folder and renamed to `<categorized_picture_name>_crop_<crop_index>.jpg`
 
 Keybindings :

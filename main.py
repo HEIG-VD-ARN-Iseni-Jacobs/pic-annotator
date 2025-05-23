@@ -348,14 +348,294 @@ class Crop(tk.Frame):
         self.app = app
         self.pack(fill=tk.BOTH, expand=True)
         
+        # Initialize variables
+        self.image_files = [f for f in self.app.categorized_folder.glob("*") 
+                          if f.suffix.lower() in ('.png', '.jpg', '.jpeg', '.gif', '.bmp')]
+        self.current_index = 0
+        self.current_image = None
+        self.photo_image = None
+        self.selection_start = None
+        self.selection_rect = None
+        self.crop_counter = {}
+        
         # Create main container
         self.container = tk.Frame(self)
         self.container.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         
-        # Create info label
-        self.info_label = tk.Label(self.container, text="Single image cropping widget - To be implemented", 
-                                 font=('Arial', 12), wraplength=600)
-        self.info_label.pack(pady=20)
+        # Create canvas for image display and selection
+        self.canvas_frame = tk.Frame(self.container)
+        self.canvas_frame.pack(fill=tk.BOTH, expand=True)
+        
+        self.canvas = tk.Canvas(self.canvas_frame, bg='gray')
+        self.canvas.pack(fill=tk.BOTH, expand=True)
+        
+        # Create info frame
+        self.info_frame = tk.Frame(self.container)
+        self.info_frame.pack(fill=tk.X, pady=5)
+        
+        self.file_label = tk.Label(self.info_frame, text="", font=('Arial', 10))
+        self.file_label.pack(side=tk.LEFT, padx=5)
+        
+        self.progress_label = tk.Label(self.info_frame, text="", font=('Arial', 10))
+        self.progress_label.pack(side=tk.LEFT, padx=5)
+        
+        # Create button frame
+        self.button_frame = tk.Frame(self.container, height=60, bg="lightgray")
+        self.button_frame.pack(side=tk.BOTTOM, fill=tk.X, pady=10)
+        
+        # Add buttons
+        self.prev_button = tk.Button(self.button_frame, text="Previous", command=self.prev_image,
+                                   padx=20, pady=8, bg="#e0e0e0", font=('Arial', 10, 'bold'))
+        self.prev_button.pack(side=tk.LEFT, padx=20, pady=10)
+        
+        self.skip_button = tk.Button(self.button_frame, text="Skip (N)", command=self.next_image,
+                                   padx=20, pady=8, bg="#FFA500", fg="white", font=('Arial', 10, 'bold'))
+        self.skip_button.pack(side=tk.LEFT, padx=20, pady=10)
+        
+        self.save_button = tk.Button(self.button_frame, text="Save Crop", command=self.save_crop,
+                                   padx=20, pady=8, bg="#4CAF50", fg="white", font=('Arial', 10, 'bold'))
+        self.save_button.pack(side=tk.LEFT, padx=20, pady=10)
+        
+        # Bind events
+        self.canvas.bind("<ButtonPress-1>", self.on_press)
+        self.canvas.bind("<B1-Motion>", self.on_drag)
+        self.canvas.bind("<ButtonRelease-1>", self.on_release)
+        self.bind("<n>", lambda e: self.next_image())
+        self.bind("<N>", lambda e: self.next_image())
+        
+        # Load first image
+        if self.image_files:
+            self.load_current_image()
+    
+    def _get_crop_count(self, base_name):
+        """Get the next available number for a specific base name"""
+        if base_name in self.crop_counter:
+            return self.crop_counter[base_name]
+        
+        # Check existing files with this base name
+        existing_files = list(self.app.cropped_folder.glob(f"{base_name}_crop_*.*"))
+        if not existing_files:
+            return 1
+        
+        # Extract numbers from existing files
+        numbers = []
+        for file in existing_files:
+            try:
+                number_part = file.stem.split('_crop_')[1]
+                if number_part.isdigit():
+                    numbers.append(int(number_part))
+            except (IndexError, ValueError):
+                continue
+        
+        # If no valid numbers found, start from 1
+        if not numbers:
+            return 1
+            
+        # Return the highest number found + 1
+        return max(numbers) + 1
+    
+    def load_current_image(self):
+        """Load and display the current image"""
+        if not self.image_files or self.current_index >= len(self.image_files):
+            messagebox.showinfo("Complete", "No more images to process!")
+            return
+        
+        # Get current image path
+        self.current_image_path = self.image_files[self.current_index]
+        
+        # Get base filename for naming crops
+        self.current_base_name = self.current_image_path.stem
+        
+        # Initialize or get crop counter for this base name
+        if self.current_base_name not in self.crop_counter:
+            self.crop_counter[self.current_base_name] = self._get_crop_count(self.current_base_name)
+        
+        try:
+            # Open and resize image to fit canvas
+            self.current_image = Image.open(self.current_image_path)
+            
+            # Calculate resize dimensions to fit canvas while maintaining aspect ratio
+            canvas_width = self.canvas.winfo_width()
+            canvas_height = self.canvas.winfo_height()
+            
+            if canvas_width <= 1:  # Canvas not yet drawn
+                canvas_width = 800
+                canvas_height = 600
+            
+            # Calculate resize dimensions
+            img_width, img_height = self.current_image.size
+            scale = min(canvas_width/img_width, canvas_height/img_height)
+            new_width = int(img_width * scale)
+            new_height = int(img_height * scale)
+            
+            # Resize image
+            display_img = self.current_image.resize((new_width, new_height), Image.Resampling.LANCZOS)
+            
+            # Convert to PhotoImage
+            self.photo_image = ImageTk.PhotoImage(display_img)
+            
+            # Update canvas
+            self.canvas.delete("all")
+            self.canvas.create_image(canvas_width//2, canvas_height//2, 
+                                   image=self.photo_image, anchor=tk.CENTER)
+            
+            # Store scale factor for later use in cropping
+            self.scale_factor = scale
+            
+            # Update information
+            self.file_label.configure(text=f"File: {self.current_image_path.name}")
+            self.progress_label.configure(text=f"Image {self.current_index + 1} of {len(self.image_files)}")
+            
+            # Update application title
+            self.app.title(f"Image Processing Tool - Cropping: {self.current_image_path.name}")
+            
+            # Clear any existing selection
+            if self.selection_rect:
+                self.canvas.delete(self.selection_rect)
+                self.selection_rect = None
+            self.selection_start = None
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to load image: {str(e)}")
+            self.next_image()
+    
+    def on_press(self, event):
+        """Handle mouse press event"""
+        # Clear previous selection
+        if self.selection_rect:
+            self.canvas.delete(self.selection_rect)
+            self.selection_rect = None
+        
+        # Store starting point
+        self.selection_start = (event.x, event.y)
+    
+    def on_drag(self, event):
+        """Handle mouse drag event"""
+        if not self.selection_start:
+            return
+        
+        # Delete previous rectangle
+        if self.selection_rect:
+            self.canvas.delete(self.selection_rect)
+        
+        # Calculate square dimensions
+        x1, y1 = self.selection_start
+        x2, y2 = event.x, event.y
+        
+        # Make it a square by using the smaller dimension
+        size = min(abs(x2 - x1), abs(y2 - y1))
+        
+        # Determine the direction of the square
+        if x2 < x1:
+            x2 = x1 - size
+        else:
+            x2 = x1 + size
+            
+        if y2 < y1:
+            y2 = y1 - size
+        else:
+            y2 = y1 + size
+        
+        # Draw new rectangle
+        self.selection_rect = self.canvas.create_rectangle(
+            x1, y1, x2, y2,
+            outline='red', width=2
+        )
+    
+    def on_release(self, event):
+        """Handle mouse release event"""
+        if not self.selection_start:
+            return
+        
+        # Finalize the selection
+        x1, y1 = self.selection_start
+        x2, y2 = event.x, event.y
+        
+        # Make it a square
+        size = min(abs(x2 - x1), abs(y2 - y1))
+        
+        if x2 < x1:
+            x2 = x1 - size
+        else:
+            x2 = x1 + size
+            
+        if y2 < y1:
+            y2 = y1 - size
+        else:
+            y2 = y1 + size
+        
+        # Update the rectangle
+        if self.selection_rect:
+            self.canvas.coords(self.selection_rect, x1, y1, x2, y2)
+        
+        # Store the final selection coordinates
+        self.selection_coords = (x1, y1, x2, y2)
+    
+    def save_crop(self):
+        """Save the current selection as a crop"""
+        if not hasattr(self, 'selection_coords'):
+            messagebox.showwarning("Warning", "Please select an area to crop first!")
+            return
+        
+        try:
+            # Get selection coordinates
+            x1, y1, x2, y2 = self.selection_coords
+            
+            # Convert canvas coordinates to image coordinates
+            canvas_width = self.canvas.winfo_width()
+            canvas_height = self.canvas.winfo_height()
+            
+            # Calculate image position on canvas
+            img_width = self.photo_image.width()
+            img_height = self.photo_image.height()
+            img_x = (canvas_width - img_width) // 2
+            img_y = (canvas_height - img_height) // 2
+            
+            # Convert selection coordinates to image coordinates
+            x1 = (x1 - img_x) / self.scale_factor
+            y1 = (y1 - img_y) / self.scale_factor
+            x2 = (x2 - img_x) / self.scale_factor
+            y2 = (y2 - img_y) / self.scale_factor
+            
+            # Ensure coordinates are within image bounds
+            x1 = max(0, min(x1, self.current_image.width))
+            y1 = max(0, min(y1, self.current_image.height))
+            x2 = max(0, min(x2, self.current_image.width))
+            y2 = max(0, min(y2, self.current_image.height))
+            
+            # Crop the image
+            crop = self.current_image.crop((x1, y1, x2, y2))
+            
+            # Create filename
+            extension = self.current_image_path.suffix
+            crop_filename = f"{self.current_base_name}_crop_{self.crop_counter[self.current_base_name]}{extension}"
+            crop_path = self.app.cropped_folder / crop_filename
+            
+            # Save crop
+            crop.save(crop_path)
+            
+            # Increment counter
+            self.crop_counter[self.current_base_name] += 1
+            
+            # Move to next image
+            self.next_image()
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to save crop: {str(e)}")
+    
+    def next_image(self):
+        """Move to next image"""
+        if self.current_index < len(self.image_files) - 1:
+            self.current_index += 1
+            self.load_current_image()
+        else:
+            messagebox.showinfo("Complete", "All images have been processed!")
+    
+    def prev_image(self):
+        """Move to previous image"""
+        if self.current_index > 0:
+            self.current_index -= 1
+            self.load_current_image()
 
 class MultiCropper(tk.Frame):
     """Widget for multi-cropping images"""

@@ -831,23 +831,25 @@ class MultiCropper(tk.Frame):
             self.load_current_image()
     
     def _generate_crop_positions(self, width, height):
-        """Generate 9 random crop positions within the image"""
-        # Less aggressive crop size (40-60% of original dimensions)
-        min_crop_size = (int(width * 0.4), int(height * 0.4))
-        max_crop_size = (int(width * 0.6), int(height * 0.6))
+        """Generate 9 random square crop positions within the image"""
+        # Use the smaller dimension to determine max crop size
+        min_dimension = min(width, height)
+        
+        # Less aggressive crop size (40-60% of the smaller dimension)
+        min_crop_size = int(min_dimension * 0.4)
+        max_crop_size = int(min_dimension * 0.6)
         
         crop_positions = []
         
         for _ in range(9):
-            # Random crop width and height
-            crop_width = random.randint(min_crop_size[0], max_crop_size[0])
-            crop_height = random.randint(min_crop_size[1], max_crop_size[1])
+            # Random square size
+            crop_size = random.randint(min_crop_size, max_crop_size)
             
             # Random position (ensure crop is within image bounds)
-            x = random.randint(0, width - crop_width)
-            y = random.randint(0, height - crop_height)
+            x = random.randint(0, width - crop_size)
+            y = random.randint(0, height - crop_size)
             
-            crop_positions.append((x, y, crop_width, crop_height))
+            crop_positions.append((x, y, crop_size, crop_size))
         
         return crop_positions
     

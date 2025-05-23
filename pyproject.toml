@@ -10,6 +10,7 @@ packages = [{include = "pic_annotator"}]
 python = "^3.11"
 pillow = "^11.2.1"
 pillow-heif = "^0.22.0"
+pyyaml = "^6.0.2"
 
 
 [build-system]

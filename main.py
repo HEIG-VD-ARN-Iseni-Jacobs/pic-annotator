@@ -10,9 +10,34 @@ import os
 from pathlib import Path
 import random
 from pillow_heif import register_heif_opener
+import yaml
 
 # Register HEIF opener with PIL
 register_heif_opener()
+
+def load_config():
+    """Load configuration from YAML file"""
+    config_path = Path("config.yaml")
+    if not config_path.exists():
+        raise FileNotFoundError("config.yaml not found!")
+    
+    with open(config_path, 'r', encoding='utf-8') as f:
+        config = yaml.safe_load(f)
+    
+    # Validate config
+    if 'author' not in config:
+        raise ValueError("Author not specified in config.yaml")
+    if 'categories' not in config:
+        raise ValueError("Categories not specified in config.yaml")
+    if len(config['categories']) > 10:
+        raise ValueError("Maximum 10 categories allowed")
+    
+    return config
+
+# Load configuration
+CONFIG = load_config()
+AUTHOR = CONFIG['author']
+CATEGORIES = [(cat['display_name'], cat['file_prefix']) for cat in CONFIG['categories']]
 
 def convert_heic_to_jpg(folder_path):
     """Convert all HEIC images in the folder to JPG format"""
@@ -41,25 +66,6 @@ def convert_heic_to_jpg(folder_path):
     
     if converted_count > 0:
         print(f"Converted {converted_count} HEIC images to JPG")
-
-# Configuration - Easy to modify categories
-# Format: ("Display Name", "file_name_prefix")
-# Maximum 10 categories (0-9 keys)
-CATEGORIES = [
-    ("Passage piéton", "passage_pieton"),
-    ("Céder le passage", "ceder_le_passage"),
-    ("Flèche à droite", "fleche_droite"),
-    ("Sens interdit", "sens_interdit"),
-    ("Limite de vitesse", "limite_vitesse"),
-    ("Parking", "parking"),
-    ("Stop", "stop"),
-    ("Rien", "rien"),
-    ("Autres", "autres")
-]
-
-# Validate categories
-if len(CATEGORIES) > 10:
-    raise ValueError("Maximum 10 categories allowed")
 
 class ImageApp(tk.Tk):
     """Main application class with navigation"""
@@ -239,7 +245,7 @@ class Categorizer(tk.Frame):
         """Generate a unique filename for the category"""
         while True:
             self.category_counters[category] += 1
-            new_filename = f"{category}_{self.category_counters[category]}{suffix}"
+            new_filename = f"{category}_{AUTHOR}_{self.category_counters[category]}{suffix}"
             if not (self.app.categorized_folder / new_filename).exists():
                 return new_filename
     

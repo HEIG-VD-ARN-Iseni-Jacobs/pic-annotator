@@ -1,0 +1,26 @@
+# Image Processing Tool Configuration
+
+# Author name for image categorization
+author: "arthur"
+
+# Categories for image classification
+# Format: display_name: file_prefix
+categories:
+  - display_name: "Passage piéton"
+    file_prefix: "passage_pieton"
+  - display_name: "Céder le passage"
+    file_prefix: "ceder_le_passage"
+  - display_name: "Flèche à droite"
+    file_prefix: "fleche_droite"
+  - display_name: "Sens interdit"
+    file_prefix: "sens_interdit"
+  - display_name: "Limite de vitesse"
+    file_prefix: "limite_vitesse"
+  - display_name: "Parking"
+    file_prefix: "parking"
+  - display_name: "Stop"
+    file_prefix: "stop"
+  - display_name: "Rien"
+    file_prefix: "rien"
+  - display_name: "Autres"
+    file_prefix: "autres" 

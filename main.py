@@ -9,6 +9,38 @@ from PIL import Image, ImageTk
 import os
 from pathlib import Path
 import random
+from pillow_heif import register_heif_opener
+
+# Register HEIF opener with PIL
+register_heif_opener()
+
+def convert_heic_to_jpg(folder_path):
+    """Convert all HEIC images in the folder to JPG format"""
+    heic_files = list(folder_path.glob("*.heic")) + list(folder_path.glob("*.HEIC"))
+    
+    if not heic_files:
+        return
+    
+    converted_count = 0
+    for heic_path in heic_files:
+        try:
+            # Open HEIC image
+            with Image.open(heic_path) as img:
+                # Create JPG filename
+                jpg_path = heic_path.with_suffix('.jpg')
+                
+                # Convert and save as JPG
+                img.convert('RGB').save(jpg_path, 'JPEG', quality=95)
+                
+                # Remove original HEIC file
+                heic_path.unlink()
+                
+                converted_count += 1
+        except Exception as e:
+            print(f"Error converting {heic_path}: {str(e)}")
+    
+    if converted_count > 0:
+        print(f"Converted {converted_count} HEIC images to JPG")
 
 # Configuration - Easy to modify categories
 # Format: ("Display Name", "file_name_prefix")
@@ -52,6 +84,9 @@ class ImageApp(tk.Tk):
         self.categorized_folder.mkdir(parents=True, exist_ok=True)
         self.cropped_folder.mkdir(parents=True, exist_ok=True)
         self.rotated_folder.mkdir(parents=True, exist_ok=True)  # Create rotated folder
+        
+        # Convert HEIC images to JPG at startup
+        convert_heic_to_jpg(self.to_process_folder)
         
         # Create notebook for tab navigation
         self.notebook = ttk.Notebook(self)

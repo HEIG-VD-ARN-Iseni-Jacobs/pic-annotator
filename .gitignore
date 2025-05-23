@@ -3,3 +3,6 @@
 *.jpeg
 *.gif
 *.bmp
+
+.idea/
+.vscode/

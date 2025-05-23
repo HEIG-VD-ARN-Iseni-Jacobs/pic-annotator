@@ -83,13 +83,15 @@ class ImageApp(tk.Tk):
         self.to_process_folder = self.base_folder / "0_to_process"
         self.categorized_folder = self.base_folder / "1_categorized"
         self.cropped_folder = self.base_folder / "2_cropped"
-        self.rotated_folder = self.base_folder / "3_rotated"  # New folder for rotated images
+        self.multi_cropped_folder = self.base_folder / "3_multi_cropped"
+        self.rotated_folder = self.base_folder / "4_rotated"
         
         # Create folders if they don't exist
         self.to_process_folder.mkdir(parents=True, exist_ok=True)
         self.categorized_folder.mkdir(parents=True, exist_ok=True)
         self.cropped_folder.mkdir(parents=True, exist_ok=True)
-        self.rotated_folder.mkdir(parents=True, exist_ok=True)  # Create rotated folder
+        self.multi_cropped_folder.mkdir(parents=True, exist_ok=True)
+        self.rotated_folder.mkdir(parents=True, exist_ok=True)
         
         # Convert HEIC images to JPG at startup
         convert_heic_to_jpg(self.to_process_folder)
@@ -100,17 +102,21 @@ class ImageApp(tk.Tk):
         
         # Create tabs
         self.categorizer_frame = ttk.Frame(self.notebook)
-        self.cropper_frame = ttk.Frame(self.notebook)
-        self.rotator_frame = ttk.Frame(self.notebook)  # New frame for rotator
+        self.crop_frame = ttk.Frame(self.notebook)
+        self.multi_crop_frame = ttk.Frame(self.notebook)
+        self.rotator_frame = ttk.Frame(self.notebook)
         
+        # Add tabs in order
         self.notebook.add(self.categorizer_frame, text="Categorize Images")
-        self.notebook.add(self.cropper_frame, text="Crop Images")
-        self.notebook.add(self.rotator_frame, text="Rotate Images")  # Add new tab
+        self.notebook.add(self.crop_frame, text="Crop Image")
+        self.notebook.add(self.multi_crop_frame, text="Multi-Crop Images")
+        self.notebook.add(self.rotator_frame, text="Rotate Images")
         
         # Initialize widgets
         self.categorizer = Categorizer(self.categorizer_frame, self)
-        self.cropper = Cropper(self.cropper_frame, self)
-        self.rotator = Rotator(self.rotator_frame, self)  # Initialize rotator
+        self.crop = Crop(self.crop_frame, self)
+        self.multi_crop = MultiCropper(self.multi_crop_frame, self)
+        self.rotator = Rotator(self.rotator_frame, self)
         
         # Set up global key bindings for each tab
         self.bind('<Return>', self.handle_return_key)
@@ -124,8 +130,10 @@ class ImageApp(tk.Tk):
         current_tab = self.notebook.select()
         if current_tab == str(self.categorizer_frame):
             self.categorizer.focus_set()
-        elif current_tab == str(self.cropper_frame):
-            self.cropper.focus_set()
+        elif current_tab == str(self.crop_frame):
+            self.crop.focus_set()
+        elif current_tab == str(self.multi_crop_frame):
+            self.multi_crop.focus_set()
         elif current_tab == str(self.rotator_frame):
             self.rotator.focus_set()
     
@@ -134,8 +142,8 @@ class ImageApp(tk.Tk):
         current_tab = self.notebook.select()
         if current_tab == str(self.categorizer_frame):
             self.categorizer.keep_image()
-        elif current_tab == str(self.cropper_frame):
-            self.cropper.save_and_next()
+        elif current_tab == str(self.crop_frame):
+            self.crop.save_and_next()
     
     def handle_delete_key(self, event):
         """Handle Delete key press based on active tab"""
@@ -333,18 +341,31 @@ class Categorizer(tk.Frame):
         except Exception as e:
             messagebox.showerror("Error", f"Failed to delete image: {str(e)}")
 
-class Cropper(tk.Frame):
-    """Widget for cropping images"""
+class Crop(tk.Frame):
+    """Widget for single image cropping"""
     def __init__(self, parent, app):
         super().__init__(parent)
         self.app = app
         self.pack(fill=tk.BOTH, expand=True)
         
-        # Crop counter for naming
-        self.crop_counter = {}
+        # Create main container
+        self.container = tk.Frame(self)
+        self.container.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         
-        # Get all images in categorized folder
-        self.image_files = [f for f in self.app.categorized_folder.glob("*") 
+        # Create info label
+        self.info_label = tk.Label(self.container, text="Single image cropping widget - To be implemented", 
+                                 font=('Arial', 12), wraplength=600)
+        self.info_label.pack(pady=20)
+
+class MultiCropper(tk.Frame):
+    """Widget for multi-cropping images"""
+    def __init__(self, parent, app):
+        super().__init__(parent)
+        self.app = app
+        self.pack(fill=tk.BOTH, expand=True)
+        
+        # Get all images in cropped folder (from single crop widget)
+        self.image_files = [f for f in self.app.cropped_folder.glob("*") 
                            if f.suffix.lower() in ('.png', '.jpg', '.jpeg', '.gif', '.bmp')]
         self.current_index = 0
         
@@ -436,7 +457,7 @@ class Cropper(tk.Frame):
             return self.crop_counter[base_name]
         
         # Check existing files with this base name
-        existing_files = list(self.app.cropped_folder.glob(f"{base_name}_crop_*.*"))
+        existing_files = list(self.app.multi_cropped_folder.glob(f"{base_name}_crop_*.*"))
         if not existing_files:
             return 1
         
@@ -576,7 +597,7 @@ class Cropper(tk.Frame):
                     
                     # Create filename with original name and crop index
                     crop_filename = f"{self.current_base_name}_crop_{self.crop_counter[self.current_base_name]}{extension}"
-                    crop_path = self.app.cropped_folder / crop_filename
+                    crop_path = self.app.multi_cropped_folder / crop_filename
                     
                     # Save crop
                     self.crops[i].save(crop_path)
@@ -653,7 +674,7 @@ class Rotator(tk.Frame):
         self.container.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         
         # Create info label
-        self.info_label = tk.Label(self.container, text="Click the button below to generate rotated versions of all images in the categorized folder.", 
+        self.info_label = tk.Label(self.container, text="Click the button below to generate rotated versions of all images in the multi-cropped folder.", 
                                  font=('Arial', 12), wraplength=600)
         self.info_label.pack(pady=20)
         
@@ -677,13 +698,13 @@ class Rotator(tk.Frame):
         ]
     
     def generate_rotated_images(self):
-        """Generate rotated versions of all images in the categorized folder"""
-        # Get all images in categorized folder
-        image_files = [f for f in self.app.categorized_folder.glob("*") 
+        """Generate rotated versions of all images in the multi-cropped folder"""
+        # Get all images in multi-cropped folder
+        image_files = [f for f in self.app.multi_cropped_folder.glob("*") 
                       if f.suffix.lower() in ('.png', '.jpg', '.jpeg', '.gif', '.bmp')]
         
         if not image_files:
-            messagebox.showinfo("Info", "No images found in the categorized folder!")
+            messagebox.showinfo("Info", "No images found in the multi-cropped folder!")
             return
         
         total_images = len(image_files)

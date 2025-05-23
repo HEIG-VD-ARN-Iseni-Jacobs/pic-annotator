@@ -2,10 +2,11 @@
 
 This tool was built to manually but quickly generate a dataset of images for training a CNN model.
 
-It is composed of two main parts :
+It is composed of four main parts :
 - The first part is a simple image categorizer, that allows you to quickly categorize images based on a list of categories (the categories are defined in the code).
-- The second part is a picture cropper for data augmentation. It takes the categorized images and crops them into multiple randomly-positioned and randomly-sized images. The user can then click on the pictures to select them or not. This allows for a quick and easy data augmentation.
-- The third part is a picture rotator for data augmentation. It takes the categorized images and rotates them into multiple versions. For now, it creates black borders, but we plan on zooming in on the picture to prevent this.
+- The second part is a picture cropper to make sure the object of interest takes enough space in the picture. TODO, not implemented yet.
+- The third part is a multi-picture cropper for data augmentation. It takes the cropped images and crops them into multiple randomly-positioned and randomly-sized images. The user can then click on the pictures to select them or not. This allows for a quick and easy data augmentation.
+- The fourth part is a picture rotator for data augmentation. It takes the multi-cropped images and rotates them into multiple versions. For now, it creates black borders, but we plan on zooming in on the picture to prevent this.
 
 There are some other parts coming soon with various tools : another dataset augmentation tool by rotation, ...
 
@@ -26,12 +27,20 @@ Keybindings :
 
 ### 2. Picture cropper
 
+TODO, not implemented yet.
+
+### 3. Multi-picture cropper
+
 When you're finished with the categorizer, you can run the picture cropper. You may have to restart the app for you to see pictures in the widget. Don't start this before you're finished with the categorizer : the cropper doesn't rember wich pictures it has already cropped or not. 
 Cropped images will be saved in the `./images/2_cropped` folder and renamed to `<categorized_picture_name>_crop_<crop_index>.jpg`
 
 Keybindings :
 - `ENTER` : Validate crop selection and go to next picture
 - `R` : reinitialize the crop selection
+
+### 4. Picture rotator
+
+Just click on the damn button and wait for the magic to happen.
 
 ### How to run the app
 

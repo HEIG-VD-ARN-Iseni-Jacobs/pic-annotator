@@ -504,7 +504,6 @@ class Crop(tk.Frame):
         # Clear previous selection
         if self.selection_rect:
             self.canvas.delete(self.selection_rect)
-            self.selection_rect = None
         
         # Store starting point
         self.selection_start = (event.x, event.y)
@@ -643,6 +642,9 @@ class MultiCropper(tk.Frame):
         super().__init__(parent)
         self.app = app
         self.pack(fill=tk.BOTH, expand=True)
+        
+        # Initialize crop counter
+        self.crop_counter = {}
         
         # Get all images in cropped folder (from single crop widget)
         self.image_files = [f for f in self.app.cropped_folder.glob("*") 

@@ -5,6 +5,7 @@ This tool was built to manually but quickly generate a dataset of images for tra
 It is composed of two main parts :
 - The first part is a simple image categorizer, that allows you to quickly categorize images based on a list of categories (the categories are defined in the code).
 - The second part is a picture cropper for data augmentation. It takes the categorized images and crops them into multiple randomly-positioned and randomly-sized images. The user can then click on the pictures to select them or not. This allows for a quick and easy data augmentation.
+- The third part is a picture rotator for data augmentation. It takes the categorized images and rotates them into multiple versions. For now, it creates black borders, but we plan on zooming in on the picture to prevent this.
 
 There are some other parts coming soon with various tools : another dataset augmentation tool by rotation, ...
 
@@ -35,4 +36,3 @@ Keybindings :
 ### How to run the app
 
 Figure it out yourself, Poetry is well documented. Or use [this link](https://letmegooglethat.com/?q=python+poetry). Also, have I told you it's vibe-coded and you should expect bugs and crashes? Yeahhh, so don't use it for anything serious. Or don't use it at all.
-

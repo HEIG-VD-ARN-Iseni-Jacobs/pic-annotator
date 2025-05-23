@@ -40,11 +40,13 @@ class ImageApp(tk.Tk):
         self.to_process_folder = self.base_folder / "0_to_process"
         self.categorized_folder = self.base_folder / "1_categorized"
         self.cropped_folder = self.base_folder / "2_cropped"
+        self.rotated_folder = self.base_folder / "3_rotated"  # New folder for rotated images
         
         # Create folders if they don't exist
         self.to_process_folder.mkdir(parents=True, exist_ok=True)
         self.categorized_folder.mkdir(parents=True, exist_ok=True)
         self.cropped_folder.mkdir(parents=True, exist_ok=True)
+        self.rotated_folder.mkdir(parents=True, exist_ok=True)  # Create rotated folder
         
         # Create notebook for tab navigation
         self.notebook = ttk.Notebook(self)
@@ -53,13 +55,16 @@ class ImageApp(tk.Tk):
         # Create tabs
         self.categorizer_frame = ttk.Frame(self.notebook)
         self.cropper_frame = ttk.Frame(self.notebook)
+        self.rotator_frame = ttk.Frame(self.notebook)  # New frame for rotator
         
         self.notebook.add(self.categorizer_frame, text="Categorize Images")
         self.notebook.add(self.cropper_frame, text="Crop Images")
+        self.notebook.add(self.rotator_frame, text="Rotate Images")  # Add new tab
         
         # Initialize widgets
         self.categorizer = Categorizer(self.categorizer_frame, self)
         self.cropper = Cropper(self.cropper_frame, self)
+        self.rotator = Rotator(self.rotator_frame, self)  # Initialize rotator
         
         # Set up global key bindings for each tab
         self.bind('<Return>', self.handle_return_key)
@@ -75,6 +80,8 @@ class ImageApp(tk.Tk):
             self.categorizer.focus_set()
         elif current_tab == str(self.cropper_frame):
             self.cropper.focus_set()
+        elif current_tab == str(self.rotator_frame):
+            self.rotator.focus_set()
     
     def handle_return_key(self, event):
         """Handle Return key press based on active tab"""
@@ -587,6 +594,90 @@ class Cropper(tk.Frame):
                 
         except Exception as e:
             messagebox.showerror("Error", f"Failed to regenerate crops: {str(e)}")
+
+class Rotator(tk.Frame):
+    """Widget for rotating images"""
+    def __init__(self, parent, app):
+        super().__init__(parent)
+        self.app = app
+        self.pack(fill=tk.BOTH, expand=True)
+        
+        # Create main container
+        self.container = tk.Frame(self)
+        self.container.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        
+        # Create info label
+        self.info_label = tk.Label(self.container, text="Click the button below to generate rotated versions of all images in the categorized folder.", 
+                                 font=('Arial', 12), wraplength=600)
+        self.info_label.pack(pady=20)
+        
+        # Create status label
+        self.status_label = tk.Label(self.container, text="", font=('Arial', 10))
+        self.status_label.pack(pady=10)
+        
+        # Create button
+        self.rotate_button = tk.Button(self.container, text="Generate Rotated Images", 
+                                     command=self.generate_rotated_images,
+                                     padx=20, pady=10, bg="#2196F3", fg="white",
+                                     font=('Arial', 12, 'bold'))
+        self.rotate_button.pack(pady=20)
+        
+        # Define rotation intervals
+        self.rotation_intervals = [
+            (-35, -20),
+            (-20, -5),
+            (5, 20),
+            (20, 35)
+        ]
+    
+    def generate_rotated_images(self):
+        """Generate rotated versions of all images in the categorized folder"""
+        # Get all images in categorized folder
+        image_files = [f for f in self.app.categorized_folder.glob("*") 
+                      if f.suffix.lower() in ('.png', '.jpg', '.jpeg', '.gif', '.bmp')]
+        
+        if not image_files:
+            messagebox.showinfo("Info", "No images found in the categorized folder!")
+            return
+        
+        total_images = len(image_files)
+        processed = 0
+        
+        try:
+            for image_path in image_files:
+                # Update status
+                self.status_label.configure(text=f"Processing {image_path.name}...")
+                self.update()
+                
+                # Open image
+                with Image.open(image_path) as img:
+                    # Generate 4 rotated versions
+                    for i, (min_angle, max_angle) in enumerate(self.rotation_intervals):
+                        # Generate random angle within interval
+                        angle = random.uniform(min_angle, max_angle)
+                        
+                        # Rotate image
+                        rotated = img.rotate(angle, expand=True, resample=Image.Resampling.BICUBIC)
+                        
+                        # Create filename for rotated image
+                        base_name = image_path.stem
+                        extension = image_path.suffix
+                        rotated_filename = f"{base_name}_rot_{i+1}{extension}"
+                        rotated_path = self.app.rotated_folder / rotated_filename
+                        
+                        # Save rotated image
+                        rotated.save(rotated_path)
+                
+                processed += 1
+                self.status_label.configure(text=f"Processed {processed}/{total_images} images")
+                self.update()
+            
+            messagebox.showinfo("Complete", f"Successfully generated rotated versions of {total_images} images!")
+            self.status_label.configure(text="")
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"An error occurred: {str(e)}")
+            self.status_label.configure(text="")
 
 def main():
     app = ImageApp()

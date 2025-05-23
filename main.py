@@ -14,10 +14,15 @@ import random
 # Format: ("Display Name", "file_name_prefix")
 # Maximum 10 categories (0-9 keys)
 CATEGORIES = [
-    ("Sens interdit", "sens_interdit"),
+    ("Passage piéton", "passage_pieton"),
     ("Céder le passage", "ceder_le_passage"),
+    ("Flèche à droite", "fleche_droite"),
+    ("Sens interdit", "sens_interdit"),
+    ("Limite de vitesse", "limite_vitesse"),
+    ("Parking", "parking"),
     ("Stop", "stop"),
-    ("Giratoire", "giratoire")
+    ("Rien", "rien"),
+    ("Autres", "autres")
 ]
 
 # Validate categories
